@@ -37,31 +37,31 @@ def stream():
         return Response('No input text provided', status=400)
 
     def generate():
-        try:
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "When completing a partial sentence, first complete the sentence naturally, then continue with several additional related sentences to expand on the theme. Be thorough and descriptive in your continuation."},
-                    {"role": "user", "content": normalized_text}
-                ],
+        try:            
+            response = client.completions.create(
+                model="gpt-3.5-turbo-instruct",
+                prompt=normalized_text,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                logprobs=True,
-                top_logprobs=10,
+                logprobs=10,
                 stream=True
             )
 
             for chunk in response:
-                if hasattr(chunk.choices[0], 'delta') and chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
+                if hasattr(chunk, 'choices') and chunk.choices and hasattr(chunk.choices[0], 'text') and chunk.choices[0].text:
+                    content = chunk.choices[0].text
                     logprobs = {}
                     
-                    if hasattr(chunk.choices[0], 'logprobs'):
-                        for token in chunk.choices[0].logprobs.content:
-                            alternatives = {}
-                            for top_logprob in token.top_logprobs:
-                                alternatives[str(top_logprob.token)] = float(top_logprob.logprob)
-                            logprobs[str(token.token)] = alternatives
+                    if hasattr(chunk.choices[0], 'logprobs') and chunk.choices[0].logprobs and hasattr(chunk.choices[0].logprobs, 'top_logprobs'):
+                        token_idx = 0
+                        for token_logprobs in chunk.choices[0].logprobs.top_logprobs:
+                            if token_logprobs:
+                                token = chunk.choices[0].logprobs.tokens[token_idx] if hasattr(chunk.choices[0].logprobs, 'tokens') else f"token_{token_idx}"
+                                alternatives = {}
+                                for token_text, logprob in token_logprobs.items():
+                                    alternatives[str(token_text)] = float(logprob)
+                                logprobs[str(token)] = alternatives
+                            token_idx += 1
                     
                     data = {
                         'token': content,

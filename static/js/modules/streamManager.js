@@ -57,18 +57,7 @@ export const streamManager = {
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.slice(6));
-                            
-                            // Add space before first token if there's existing text
-                            if (isFirstToken && elements.textContent.innerText.trim()) {
-                                const spaceSpan = document.createElement('span');
-                                spaceSpan.textContent = ' ';
-                                insertionRange.insertNode(spaceSpan);
-                                insertionRange.setStartAfter(spaceSpan);
-                                insertionRange.collapse(true);
-                            }
-                            
                             tokenManager.appendToken(data, insertionRange);
-                            isFirstToken = false;
                         } catch (e) {
                             console.error('Error parsing JSON:', e, line);
                         }
