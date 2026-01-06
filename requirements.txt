@@ -1,4 +1,4 @@
 flask>=2.3.3
-openai==1.6.0
+openai==1.76.2
 python-dotenv==1.0.0
 werkzeug>=2.3.7
