@@ -36,6 +36,39 @@
         </div>
     </div>
     <div id="tooltip" class="tooltip"></div>
+    {% if ollama_controls %}
+    <div class="model-controls">
+        <button id="warmupBtn" class="model-dot warmup-dot" type="button" title="Warm up model"></button>
+        <button id="shutdownBtn" class="model-dot shutdown-dot" type="button" title="Shut down model"></button>
+    </div>
+    <script>
+        function pulseModelDot(button, defaultTitle) {
+            button.classList.add('active');
+            setTimeout(() => button.classList.remove('active'), 800);
+            button.title = defaultTitle;
+        }
+        document.getElementById('warmupBtn').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.title = 'Warming up...';
+            try {
+                await fetch('/model/warmup', { method: 'POST' });
+                pulseModelDot(btn, 'Model warm');
+            } catch (err) {
+                btn.title = 'Warmup failed';
+            }
+        });
+        document.getElementById('shutdownBtn').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.title = 'Shutting down...';
+            try {
+                await fetch('/model/shutdown', { method: 'POST' });
+                pulseModelDot(btn, 'Model unloaded');
+            } catch (err) {
+                btn.title = 'Shutdown failed';
+            }
+        });
+    </script>
+    {% endif %}
     <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
