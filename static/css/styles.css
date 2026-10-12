@@ -39,6 +39,12 @@ button {
 button:hover {
     background-color: #0056b3;
 }
+button.stop {
+    background-color: #dc3545;
+}
+button.stop:hover {
+    background-color: #b02a37;
+}
 .token {
     display: inline-block;
     cursor: pointer;
@@ -172,6 +178,28 @@ button:hover {
     display: flex;
     gap: 8px;
     z-index: 500;
+}
+
+.model-controls {
+    align-items: center;
+}
+
+.model-status {
+    font-size: 11px;
+    color: #888;
+    margin-right: 4px;
+    transition: color 0.2s ease;
+}
+
+.model-status[data-state="warm"] { color: #28a745; }
+.model-status[data-state="error"] { color: #dc3545; }
+.model-status[data-state="loading"] {
+    color: #e0a800;
+    animation: model-status-pulse 1s ease-in-out infinite;
+}
+
+@keyframes model-status-pulse {
+    50% { opacity: 0.4; }
 }
 
 .model-dot {

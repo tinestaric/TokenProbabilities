@@ -1,7 +1,20 @@
 import { elements } from './elements.js';
 
 export const tooltipManager = {
+    activeToken: null,
+
+    init() {
+        // Removing a hovered token (e.g. select all + delete) never fires mouseout on it,
+        // so hide the tooltip as soon as the token it belongs to leaves the document.
+        new MutationObserver(() => {
+            if (tooltipManager.activeToken && !tooltipManager.activeToken.isConnected) {
+                tooltipManager.hideTooltip();
+            }
+        }).observe(elements.textContent, { childList: true, subtree: true });
+    },
+
     showTooltip(event) {
+        tooltipManager.activeToken = event.currentTarget;
         const probabilities = JSON.parse(event.target.dataset.probabilities);
         const tooltipContent = tooltipManager.generateTooltipContent(probabilities);
         elements.tooltipDiv.innerHTML = tooltipContent;
@@ -52,6 +65,7 @@ export const tooltipManager = {
     },
 
     hideTooltip() {
+        tooltipManager.activeToken = null;
         elements.tooltipDiv.style.display = 'none';
     },
 

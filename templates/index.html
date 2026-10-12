@@ -21,6 +21,15 @@
             <div class="controls-box">
                 <div class="control-group">
                     <div class="control-header">
+                        <label for="provider"><strong>Model:</strong></label>
+                        <select id="provider" name="provider">
+                            <option value="ollama">Llama 3.1 8B (whole words)</option>
+                            <option value="openai">GPT-5.4 nano (subword tokens)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="control-header">
                         <label for="temperature"><strong>Temperature:</strong></label>
                         <input type="number" id="temperature" name="temperature" min="0" max="2" step="0.01" value="1" class="number-input">
                     </div>
@@ -38,6 +47,7 @@
     <div id="tooltip" class="tooltip"></div>
     {% if ollama_controls %}
     <div class="model-controls">
+        <span id="modelStatus" class="model-status"></span>
         <button id="warmupBtn" class="model-dot warmup-dot" type="button" title="Warm up model"></button>
         <button id="shutdownBtn" class="model-dot shutdown-dot" type="button" title="Shut down model"></button>
     </div>
@@ -47,24 +57,82 @@
             setTimeout(() => button.classList.remove('active'), 800);
             button.title = defaultTitle;
         }
+        const providerSelect = document.getElementById('provider');
+        const modelControls = document.querySelector('.model-controls');
+        // Warm up / shut down only apply to the local Ollama model
+        providerSelect.addEventListener('change', () => {
+            modelControls.style.display = providerSelect.value === 'ollama' ? '' : 'none';
+        });
+
+        const statusEl = document.getElementById('modelStatus');
+        let expiresAt = null;
+
+        function setStatus(text, state) {
+            statusEl.textContent = text;
+            statusEl.dataset.state = state || '';
+        }
+        function formatRemaining(ms) {
+            const mins = Math.max(0, Math.ceil(ms / 60000));
+            const h = Math.floor(mins / 60), m = mins % 60;
+            return h ? `${h}h ${m}m` : `${m}m`;
+        }
+        function renderStatus() {
+            if (!expiresAt) return;
+            const remaining = expiresAt - Date.now();
+            if (remaining <= 0) { expiresAt = null; setStatus('Cold', 'cold'); return; }
+            setStatus(`Warm · ${formatRemaining(remaining)}`, 'warm');
+        }
+        async function refreshStatus() {
+            try {
+                const data = await (await fetch('/model/status')).json();
+                if (data.loaded && data.expires_at) {
+                    expiresAt = new Date(data.expires_at).getTime();
+                    renderStatus();
+                } else if (data.loaded) {
+                    expiresAt = null;
+                    setStatus('Warm', 'warm');
+                } else if (data.error) {
+                    expiresAt = null;
+                    setStatus('Ollama unreachable', 'error');
+                } else {
+                    expiresAt = null;
+                    setStatus('Cold', 'cold');
+                }
+            } catch (err) {
+                setStatus('Ollama unreachable', 'error');
+            }
+        }
+        refreshStatus();
+        setInterval(refreshStatus, 30000);
+        setInterval(renderStatus, 15000);
+
         document.getElementById('warmupBtn').addEventListener('click', async (e) => {
             const btn = e.currentTarget;
             btn.title = 'Warming up...';
+            expiresAt = null;
+            setStatus('Warming up…', 'loading');
             try {
-                await fetch('/model/warmup', { method: 'POST' });
-                pulseModelDot(btn, 'Model warm');
+                const resp = await fetch('/model/warmup', { method: 'POST' });
+                if (!resp.ok) throw new Error('warmup failed');
+                pulseModelDot(btn, 'Warm up model');
+                await refreshStatus();
             } catch (err) {
                 btn.title = 'Warmup failed';
+                setStatus('Warmup failed', 'error');
             }
         });
         document.getElementById('shutdownBtn').addEventListener('click', async (e) => {
             const btn = e.currentTarget;
             btn.title = 'Shutting down...';
+            setStatus('Unloading…', 'loading');
             try {
-                await fetch('/model/shutdown', { method: 'POST' });
-                pulseModelDot(btn, 'Model unloaded');
+                const resp = await fetch('/model/shutdown', { method: 'POST' });
+                if (!resp.ok) throw new Error('shutdown failed');
+                pulseModelDot(btn, 'Shut down model');
+                await refreshStatus();
             } catch (err) {
                 btn.title = 'Shutdown failed';
+                setStatus('Shutdown failed', 'error');
             }
         });
     </script>

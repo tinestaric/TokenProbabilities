@@ -24,20 +24,39 @@ export const streamManager = {
         return insertionRange;
     },
 
+    abortController: null,
+
+    toggleStreaming() {
+        if (this.abortController) {
+            this.abortController.abort();
+        } else {
+            this.startStreaming();
+        }
+    },
+
+    setGenerating(isGenerating) {
+        elements.generateButton.textContent = isGenerating ? 'Stop Generating' : 'Generate Completion';
+        elements.generateButton.classList.toggle('stop', isGenerating);
+    },
+
     async startStreaming() {
         elements.loading.style.display = 'block';
+        this.abortController = new AbortController();
+        this.setGenerating(true);
 
         try {
             const insertionRange = this.resolveInsertionRange();
             const response = await fetch('/stream', {
                 method: 'POST',
+                signal: this.abortController.signal,
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     text: textProcessor.prepareText(elements.textContent.innerText),
                     temperature: parseFloat(elements.temperatureInput.value),
-                    maxTokens: parseInt(elements.maxTokens.value)
+                    maxTokens: parseInt(elements.maxTokens.value),
+                    provider: elements.provider.value
                 })
             });
 
@@ -47,8 +66,10 @@ export const streamManager = {
 
             await this.processStreamResponse(response, insertionRange);
         } catch (error) {
-            console.error('Error:', error);
+            if (error.name !== 'AbortError') console.error('Error:', error);
         } finally {
+            this.abortController = null;
+            this.setGenerating(false);
             elements.loading.style.display = 'none';
         }
     },
@@ -80,7 +101,7 @@ export const streamManager = {
                 });
             }
         } catch (error) {
-            console.error('Error processing stream:', error);
+            if (error.name !== 'AbortError') console.error('Error processing stream:', error);
         }
     }
 };
